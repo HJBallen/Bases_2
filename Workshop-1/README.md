@@ -31,7 +31,7 @@ The document includes:
    - **Entities and Relationships**  
    - **Data flows and Application's needs**
 
-5. **References 
+5. **References** 
 
 ---
 
