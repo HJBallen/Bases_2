@@ -1,6 +1,12 @@
-# 📚 Databases II - Course Materials
+# 📘 Databases II – Group Repository
 
-This repository contains the materials for the **Databases II** course. It includes lecture slides, practical examples, workshops, projects, and other resources aimed at deepening your understanding of advanced database concepts and their implementation in real-world systems.
+Welcome to our group repository for the **Databases II** course, part of our undergraduate program. This repo contains our collaborative work throughout the semester, including:
+
+- ✅ Completed Workshops  
+- 💼 Semester Project (Design, Code, Report)  
+- 📄 Documentation and Deliverables
+
+We’re using this repository to stay organized, collaborate efficiently, and track our progress in real time.
 
 ---
 ## 📂 Repository Structure
