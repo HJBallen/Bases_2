@@ -26,6 +26,13 @@ The document includes:
    - **Vendor Stories**  
    - **Administrator Stories**  
 
+4. **Initial Database Architecture**
+   - **Architecture**  
+   - **Entities and Relationships**  
+   - **Data flows and Application's needs**
+
+5. **References 
+
 ---
 
 ## 🛠️ Requirements to Compile
@@ -50,4 +57,5 @@ Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas
 Andruew Steven Zabala Serrano  
 Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas  
 📧 aszabalas@udistrital.edu.co  
+
 
