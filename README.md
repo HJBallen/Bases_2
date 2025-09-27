@@ -20,7 +20,8 @@ We’re using this repository to stay organized, collaborate efficiently, and tr
 │   └── README.md
 │   └── Workshop_I.pdf
 └── README.md
-├── ...
+├── 
+...
 
 ---
 
