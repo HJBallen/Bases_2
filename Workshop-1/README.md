@@ -1,10 +1,10 @@
-# Workshop I - E-commerce Platform Design
+# Workshop I - E-commerce Platform - BogoGo
 
-Este repositorio contiene el documento en **LaTeX** titulado **"WORKSHOP I"**, en el que se desarrolla el diseño de una plataforma de comercio electrónico a nivel nacional e internacional.  
+This repository contains the **LaTeX** document titled **"WORKSHOP I"**, which develops the design of a national and international e-commerce platform.  
 
-## 📄 Contenido del Documento
+## 📄 Document Contents
 
-El documento incluye:
+The document includes:
 
 1. **Business Model Canvas (BMC)**  
    - Key Partners  
@@ -28,25 +28,26 @@ El documento incluye:
 
 ---
 
-## 🛠️ Requisitos para Compilar
+## 🛠️ Requirements to Compile
 
-Asegúrate de tener instalado:
+Make sure you have installed:
 
-- **LaTeX** (TeX Live, MiKTeX u Overleaf)  
-- Paquetes: `cite`, `amsmath`, `amssymb`, `graphicx`, `hyperref`, `enumitem`, `tikz`, `tabularx`, `xcolor`, `array`, `float`, `url`
+- **LaTeX** (TeX Live, MiKTeX, or Overleaf)  
+- Packages: `cite`, `amsmath`, `amssymb`, `graphicx`, `hyperref`, `enumitem`, `tikz`, `tabularx`, `xcolor`, `array`, `float`, `url`
 
 ---
 
-## 👥 Autores
+## 👥 Authors
 
-Ruben David Montoya Arredondo
-Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas
-📧 rdmontoyaa@udistrital.edu.co
+Ruben David Montoya Arredondo  
+Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas  
+📧 rdmontoyaa@udistrital.edu.co  
 
-Hemerson Julian Ballen Triana
-Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas
-📧 hjballent@udistrital.edu.co
+Hemerson Julian Ballen Triana  
+Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas  
+📧 hjballent@udistrital.edu.co  
 
-Andruew Steven Zabala Serrano
-Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas
-📧 aszabalas@udistrital.edu.co
+Andruew Steven Zabala Serrano  
+Dept. of Computer Engineering, Universidad Distrital Francisco José de Caldas  
+📧 aszabalas@udistrital.edu.co  
+
