@@ -1,6 +1,6 @@
 # Workshop I - E-commerce Platform - BogoGo
 
-This repository contains the **LaTeX** document titled **"WORKSHOP I"**, which develops the design of a national and international e-commerce platform.  
+This repository contains the document  **"WORKSHOP I"**, which develops the design of an e-commerce platform.  
 
 ## 📄 Document Contents
 
@@ -24,7 +24,8 @@ The document includes:
 3. **User Stories**
    - **Customer Stories**  
    - **Vendor Stories**  
-   - **Administrator Stories**  
+   - **Administrator Stories**
+   - **System-Level / Technical Stories**  
 
 4. **Initial Database Architecture**
    - **Architecture**  
