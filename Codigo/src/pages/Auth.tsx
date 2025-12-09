@@ -22,28 +22,44 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres' }),
 });
 
-const signupStep1Schema = z.object({
-  name: z.string().trim().min(2, { message: 'El nombre debe tener al menos 2 caracteres' }),
-  lastname: z.string().trim().min(2, { message: 'El apellido debe tener al menos 2 caracteres' }),
-  email: z.string().trim().email({ message: 'Email inválido' }),
-  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres' }),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Las contraseñas no coinciden',
-  path: ['confirmPassword'],
-});
+const signupStep1Schema = z
+  .object({
+    name: z.string().trim().min(2, { message: 'El nombre debe tener al menos 2 caracteres' }),
+    lastname: z.string().trim().min(2, { message: 'El apellido debe tener al menos 2 caracteres' }),
+    email: z.string().trim().email({ message: 'Email inválido' }),
+    password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres' }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });
 
 const signupStep2Schema = z.object({
-  cell: z.string().trim().min(10, { message: 'El celular debe tener al menos 10 dígitos' }).max(12, { message: 'El celular no debe exceder 12 dígitos' }),
+  cell: z
+    .string()
+    .trim()
+    .min(10, { message: 'El celular debe tener al menos 10 dígitos' })
+    .max(12, { message: 'El celular no debe exceder 12 dígitos' }),
   roleId: z.number().min(2).max(3),
 });
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { user, signIn, signUp, signInWithGoogle, isLoading: authLoading, needsProfileCompletion } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('login');
-  const [signupStep, setSignupStep] = useState(1);
+  const {
+    user,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    isLoading: authLoading,
+    needsProfileCompletion,
+  } = useAuth();
+
+  // 👇 nuevo nombre para no mezclar con el isLoading del contexto
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [signupStep, setSignupStep] = useState<1 | 2>(1);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -60,33 +76,39 @@ export default function Auth() {
   const [signupCell, setSignupCell] = useState('');
   const [signupRoleId, setSignupRoleId] = useState<number>(ROLES.CUSTOMER);
 
-  // Temporary user ID for step 2
+  // Temporary user ID for step 2 (uuid de auth.users)
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
+  // 🔹 Redirección centralizada según estado de auth
   useEffect(() => {
-  console.log({ user, authLoading, needsProfileCompletion });
+    console.log({ user, authLoading, needsProfileCompletion });
 
-  if (!authLoading && user && needsProfileCompletion !== null) {
+    if (authLoading) return; // aún cargando sesión
+    if (!user) return; // no hay usuario → se queda en la pantalla de auth
+    if (needsProfileCompletion === null) return; // aún calculando
+
     if (needsProfileCompletion) {
-      navigate("/completar-perfil");
+      navigate('/completar-perfil', { replace: true });
     } else {
-      navigate("/");
+      navigate('/', { replace: true });
     }
-  }
-}, [user, authLoading, needsProfileCompletion, navigate]);
+  }, [user, authLoading, needsProfileCompletion, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const validation = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
+
+    const validation = loginSchema.safeParse({
+      email: loginEmail,
+      password: loginPassword,
+    });
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     const { error } = await signIn(loginEmail, loginPassword);
-    setIsLoading(false);
+    setIsSubmitting(false);
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
@@ -100,11 +122,12 @@ export default function Auth() {
     }
 
     toast.success('¡Bienvenido de vuelta!');
+    // la redirección la maneja el useEffect según user + needsProfileCompletion
   };
 
   const handleSignupStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validation = signupStep1Schema.safeParse({
       name: signupName,
       lastname: signupLastname,
@@ -118,9 +141,14 @@ export default function Auth() {
       return;
     }
 
-    setIsLoading(true);
-    const { error, userId } = await signUp(signupEmail, signupPassword, signupName, signupLastname);
-    setIsLoading(false);
+    setIsSubmitting(true);
+    const { error, userId } = await signUp(
+      signupEmail,
+      signupPassword,
+      signupName,
+      signupLastname,
+    );
+    setIsSubmitting(false);
 
     if (error) {
       if (error.message.includes('User already registered')) {
@@ -140,7 +168,7 @@ export default function Auth() {
 
   const handleSignupStep2 = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validation = signupStep2Schema.safeParse({
       cell: signupCell,
       roleId: signupRoleId,
@@ -157,42 +185,46 @@ export default function Auth() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
-      // Insert user data into public.user table
-      const { error: userError } = await supabase
-        .from('user')
-        .insert({
-          id: parseInt(pendingUserId.replace(/-/g, '').slice(0, 8), 16) % 2147483647,
-          name: signupName,
-          lastname: signupLastname,
-          email: signupEmail,
-          cell: signupCell,
-          role_id: signupRoleId,
-        });
+      // ⚠️ IMPORTANTE: guardar también el uuid de auth.users
+      const { error: userError } = await supabase.from('user').insert({
+        uuid: pendingUserId,
+        name: signupName,
+        lastname: signupLastname,
+        email: signupEmail,
+        cell: signupCell,
+        role_id: signupRoleId,
+      });
 
       if (userError) {
         console.error('Error inserting user:', userError);
         toast.error('Error al guardar la información. Intenta de nuevo.');
-        setIsLoading(false);
+        setIsSubmitting(false);
         return;
       }
 
-      // Also insert into user_roles for the existing auth system
       const roleMap: Record<number, string> = {
         [ROLES.CUSTOMER]: 'comprador',
         [ROLES.VENDOR]: 'vendedor',
       };
 
-      await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: pendingUserId,
-          role: roleMap[signupRoleId],
-        });
+      const { error: userRoleError } = await supabase.from('user_roles').upsert({
+        user_id: pendingUserId,
+        role: roleMap[signupRoleId],
+      });
 
-      toast.success('¡Registro completado! Revisa tu email para confirmar tu cuenta.');
+      if (userRoleError) {
+        console.error('Error inserting user_roles:', userRoleError);
+        toast.error('Error al guardar el rol. Intenta de nuevo.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      toast.success(
+        '¡Registro completado! Revisa tu email para confirmar tu cuenta.',
+      );
       setActiveTab('login');
       setSignupStep(1);
       resetSignupForm();
@@ -201,7 +233,7 @@ export default function Auth() {
       toast.error('Error al completar el registro.');
     }
 
-    setIsLoading(false);
+    setIsSubmitting(false);
   };
 
   const resetSignupForm = () => {
@@ -216,13 +248,14 @@ export default function Auth() {
   };
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     const { error } = await signInWithGoogle();
-    
+
     if (error) {
       toast.error('Error al iniciar sesión con Google.');
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
+    // Si no hay error, Supabase redirige y el AuthProvider se encargará del resto.
   };
 
   if (authLoading) {
@@ -235,8 +268,8 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 py-12">
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="mb-8 font-display text-4xl font-bold tracking-tight text-foreground"
       >
         <span className="text-primary">BOGO</span>
@@ -244,7 +277,13 @@ export default function Auth() {
       </Link>
 
       <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-sm">
-        <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setSignupStep(1); }}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value as 'login' | 'signup');
+            setSignupStep(1);
+          }}
+        >
           <CardHeader className="space-y-1 pb-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
@@ -253,7 +292,6 @@ export default function Auth() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {/* Google Login Button - Only show on step 1 or login */}
             {(activeTab === 'login' || signupStep === 1) && (
               <>
                 <Button
@@ -261,8 +299,9 @@ export default function Auth() {
                   variant="outline"
                   className="w-full gap-2"
                   onClick={handleGoogleLogin}
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                 >
+                  {/* SVG Google */}
                   <svg className="h-5 w-5" viewBox="0 0 24 24">
                     <path
                       fill="currentColor"
@@ -289,7 +328,9 @@ export default function Auth() {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">O continúa con email</span>
+                    <span className="bg-card px-2 text-muted-foreground">
+                      O continúa con email
+                    </span>
                   </div>
                 </div>
               </>
@@ -327,8 +368,8 @@ export default function Auth() {
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Iniciando sesión...
@@ -402,7 +443,9 @@ export default function Auth() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-confirm-password">Confirmar Contraseña</Label>
+                    <Label htmlFor="signup-confirm-password">
+                      Confirmar Contraseña
+                    </Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -416,8 +459,12 @@ export default function Auth() {
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full gap-2" disabled={isLoading}>
-                    {isLoading ? (
+                  <Button
+                    type="submit"
+                    className="w-full gap-2"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Registrando...
@@ -433,8 +480,12 @@ export default function Auth() {
               ) : (
                 <form onSubmit={handleSignupStep2} className="space-y-6">
                   <div className="text-center">
-                    <h3 className="text-lg font-semibold text-foreground">Últimos Pasos</h3>
-                    <p className="text-sm text-muted-foreground">Completa tu perfil para continuar</p>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Últimos Pasos
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Completa tu perfil para continuar
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -447,7 +498,9 @@ export default function Auth() {
                         placeholder="3001234567"
                         className="pl-10"
                         value={signupCell}
-                        onChange={(e) => setSignupCell(e.target.value.replace(/\D/g, ''))}
+                        onChange={(e) =>
+                          setSignupCell(e.target.value.replace(/\D/g, ''))
+                        }
                         maxLength={12}
                         required
                       />
@@ -458,21 +511,39 @@ export default function Auth() {
                     <Label>¿Cómo deseas registrarte?</Label>
                     <RadioGroup
                       value={signupRoleId.toString()}
-                      onValueChange={(value) => setSignupRoleId(parseInt(value))}
+                      onValueChange={(value) =>
+                        setSignupRoleId(parseInt(value, 10))
+                      }
                       className="space-y-3"
                     >
                       <div className="flex items-center space-x-3 rounded-lg border border-border p-4 hover:bg-secondary/50 transition-colors cursor-pointer">
-                        <RadioGroupItem value={ROLES.CUSTOMER.toString()} id="role-customer" />
-                        <Label htmlFor="role-customer" className="flex-1 cursor-pointer">
+                        <RadioGroupItem
+                          value={ROLES.CUSTOMER.toString()}
+                          id="role-customer"
+                        />
+                        <Label
+                          htmlFor="role-customer"
+                          className="flex-1 cursor-pointer"
+                        >
                           <div className="font-medium">Comprador</div>
-                          <div className="text-sm text-muted-foreground">Quiero comprar productos de moda</div>
+                          <div className="text-sm text-muted-foreground">
+                            Quiero comprar productos de moda
+                          </div>
                         </Label>
                       </div>
                       <div className="flex items-center space-x-3 rounded-lg border border-border p-4 hover:bg-secondary/50 transition-colors cursor-pointer">
-                        <RadioGroupItem value={ROLES.VENDOR.toString()} id="role-vendor" />
-                        <Label htmlFor="role-vendor" className="flex-1 cursor-pointer">
+                        <RadioGroupItem
+                          value={ROLES.VENDOR.toString()}
+                          id="role-vendor"
+                        />
+                        <Label
+                          htmlFor="role-vendor"
+                          className="flex-1 cursor-pointer"
+                        >
                           <div className="font-medium">Vendedor</div>
-                          <div className="text-sm text-muted-foreground">Quiero vender mis productos</div>
+                          <div className="text-sm text-muted-foreground">
+                            Quiero vender mis productos
+                          </div>
                         </Label>
                       </div>
                     </RadioGroup>
@@ -484,13 +555,17 @@ export default function Auth() {
                       variant="outline"
                       className="flex-1 gap-2"
                       onClick={() => setSignupStep(1)}
-                      disabled={isLoading}
+                      disabled={isSubmitting}
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Atrás
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={isLoading}>
-                      {isLoading ? (
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Completando...

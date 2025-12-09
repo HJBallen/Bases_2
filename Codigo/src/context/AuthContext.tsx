@@ -5,10 +5,10 @@ import {
   useState,
   useRef,
   ReactNode,
-} from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import { AppRole } from "@/types/auth";
+} from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { AppRole } from '@/types/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -20,11 +20,11 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string,
-    lastname: string
+    lastname: string,
   ) => Promise<{ error: Error | null; userId: string | null }>;
   signIn: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -42,133 +42,118 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useState<boolean | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
 
-  // 🔹 Rol: se lee desde public.user.role_id usando el uuid (auth.users.id)
   const fetchUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from("user") // public.user
-        .select("role_id")
-        .eq("uuid", userId)
+        .from('user')
+        .select('role_id')
+        .eq('uuid', userId)
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching user role:", error);
-        setUserRole("comprador");
+        console.error('Error fetching user role:', error);
+        setUserRole('comprador');
         return;
       }
 
       if (!data || data.role_id == null) {
-        setUserRole("comprador");
+        setUserRole('comprador');
         return;
       }
 
       const roleMap: Record<number, AppRole> = {
-        1: "administrador",
-        2: "comprador",
-        3: "vendedor",
+        1: 'administrador',
+        2: 'comprador',
+        3: 'vendedor',
       };
 
-      setUserRole(roleMap[data.role_id] ?? "comprador");
+      setUserRole(roleMap[data.role_id] ?? 'comprador');
     } catch (error) {
-      console.error("Error fetching user role:", error);
-      setUserRole("comprador");
+      console.error('Error fetching user role:', error);
+      setUserRole('comprador');
     }
   };
 
-  // 🔹 Perfil completo: existe fila en public.user con uuid = auth.users.id
   const checkProfileCompletion = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from("user") // public.user
-        .select("id")
-        .eq("uuid", userId)
+        .from('user')
+        .select('id')
+        .eq('uuid', userId)
         .maybeSingle();
 
       if (error) {
-        console.warn("Error checking profile completion:", error);
+        console.warn('Error checking profile completion:', error);
       }
 
       if (!data) {
-        // no hay fila → falta completar perfil
         setNeedsProfileCompletion(true);
       } else {
-        // sí hay fila → perfil completo
         setNeedsProfileCompletion(false);
       }
     } catch (error) {
-      console.error("Error checking profile completion:", error);
-      setNeedsProfileCompletion(true);
+      console.error('Error checking profile completion:', error);
+      // En caso de error de red, no marcamos como true por defecto,
+      // para evitar redirecciones raras. Lo dejamos en null.
+      setNeedsProfileCompletion(null);
     }
+  };
+
+  const loadUserData = async (userId: string) => {
+    await Promise.all([fetchUserRole(userId), checkProfileCompletion(userId)]);
   };
 
   useEffect(() => {
     let isMounted = true;
-    let isInitialLoad = true;
 
-    // Función para cargar datos del usuario
-    const loadUserData = async (userId: string) => {
-      try {
-        await Promise.all([
-          fetchUserRole(userId),
-          checkProfileCompletion(userId),
-        ]);
-      } catch (err) {
-        console.error("Error loading user data:", err);
-      }
-    };
-
-    // Verificar sesión inicial
     const initializeSession = async () => {
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
-        if (isMounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user ?? null);
-          currentUserIdRef.current = initialSession?.user?.id ?? null;
+        setIsLoading(true);
 
-          if (initialSession?.user) {
-            await loadUserData(initialSession.user.id);
-          } else {
-            setUserRole(null);
-            setNeedsProfileCompletion(null);
-          }
+        const {
+          data: { session: initialSession },
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        currentUserIdRef.current = initialSession?.user?.id ?? null;
+
+        if (initialSession?.user) {
+          await loadUserData(initialSession.user.id);
+        } else {
+          setUserRole(null);
+          setNeedsProfileCompletion(null);
         }
       } catch (err) {
-        console.error("Error initializing session:", err);
+        console.error('Error initializing session:', err);
       } finally {
         if (isMounted) {
-          isInitialLoad = false;
           setIsLoading(false);
         }
       }
     };
 
-    // Inicializar sesión
     initializeSession();
 
-    // Listener para cambios de autenticación
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      // No poner loading si es solo un refresh de token y el usuario no cambió
-      if (event === 'TOKEN_REFRESHED' && session?.user && currentUserIdRef.current === session.user.id) {
-        // Solo actualizar la sesión sin recargar todo
+      // ⚠️ Caso especial: TOKEN_REFRESHED
+      // No bloqueamos la UI ni recargamos rol/perfil.
+      // Solo actualizamos session y user.
+      if (event === 'TOKEN_REFRESHED') {
         setSession(session);
+        setUser(session?.user ?? null);
+        currentUserIdRef.current = session?.user?.id ?? null;
         return;
       }
 
-      // Solo poner loading si es un cambio significativo
-      const isSignificantChange = 
-        event === 'SIGNED_IN' || 
-        event === 'SIGNED_OUT' ||
-        event === 'USER_UPDATED';
-
-      if (isSignificantChange && !isInitialLoad) {
-        setIsLoading(true);
-      }
+      // Para cambios "grandes" (login, logout, update), sí mostramos loading y recargamos datos
+      setIsLoading(true);
 
       try {
         setSession(session);
@@ -182,9 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setNeedsProfileCompletion(null);
         }
       } catch (err) {
-        console.error("Error en onAuthStateChange:", err);
+        console.error('Error en onAuthStateChange:', err);
       } finally {
-        if (isMounted && isSignificantChange) {
+        if (isMounted) {
           setIsLoading(false);
         }
       }
@@ -200,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     name: string,
-    lastname: string
+    lastname: string,
   ) => {
     const redirectUrl = `${window.location.origin}/`;
 
@@ -233,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/`,
       },
@@ -273,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
