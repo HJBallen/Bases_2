@@ -1,6 +1,6 @@
-import { Navigate, Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Loader2, Package, Users, BarChart3, Settings, ShoppingCart, Tag, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, Package, Users, BarChart3, Settings, ShoppingCart, Tag, AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAdminDashboard } from '@/hooks/useDashboardData';
@@ -50,6 +50,14 @@ function AdminSidebar() {
           Configuración
         </Button>
       </nav>
+      <div className="border-t border-border p-4">
+        <Button variant="outline" className="w-full justify-start gap-2" asChild>
+          <Link to="/">
+            <Home className="h-4 w-4" />
+            Volver a la Tienda
+          </Link>
+        </Button>
+      </div>
     </aside>
   );
 }

@@ -1,6 +1,6 @@
-import { Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Loader2, Package, BarChart3, Settings, ShoppingCart, Plus, AlertTriangle, RefreshCw, Star } from 'lucide-react';
+import { Loader2, Package, BarChart3, Settings, ShoppingCart, Plus, AlertTriangle, RefreshCw, Star, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useVendorDashboard } from '@/hooks/useDashboardData';
@@ -48,6 +48,14 @@ function VendorSidebar() {
           Configuración
         </Button>
       </nav>
+      <div className="border-t border-border p-4">
+        <Button variant="outline" className="w-full justify-start gap-2" asChild>
+          <Link to="/">
+            <Home className="h-4 w-4" />
+            Volver a la Tienda
+          </Link>
+        </Button>
+      </div>
     </aside>
   );
 }
