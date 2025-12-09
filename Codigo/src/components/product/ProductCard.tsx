@@ -15,9 +15,9 @@ export function ProductCard({ product, className, index = 0 }: ProductCardProps)
   const { addToCart } = useCart();
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-ES', {
+    return new Intl.NumberFormat('es-CO', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'COP',
     }).format(price);
   };
 

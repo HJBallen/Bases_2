@@ -1,28 +1,81 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ShoppingBag, Heart, ChevronLeft, Star, Truck, Shield, RotateCcw } from 'lucide-react';
+import { ShoppingBag, Heart, ChevronLeft, Star, Truck, Shield, RotateCcw, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { Button } from '@/components/ui/button';
-import { getProductById, products } from '@/data/mockData';
+import { useBogoGoApi } from '@/hooks/useBogoGoApi';
 import { useCart } from '@/context/CartContext';
 import { ProductCard } from '@/components/product/ProductCard';
+import { Product } from '@/types';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const product = getProductById(id || '');
+  const { fetchProductById, fetchProducts, products: allProducts } = useBogoGoApi();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cargar productos para mostrar productos relacionados
+  useEffect(() => {
+    if (allProducts.length === 0) {
+      fetchProducts();
+    }
+  }, [allProducts.length, fetchProducts]);
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const productData = await fetchProductById(id);
+        if (productData) {
+          setProduct(productData);
+        } else {
+          setError('Producto no encontrado');
+        }
+      } catch (err: unknown) {
+        console.error('Error loading product:', err);
+        setError(err instanceof Error ? err.message : 'Error al cargar el producto');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [id, fetchProductById]);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-ES', {
+    return new Intl.NumberFormat('es-CO', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'COP',
     }).format(price);
   };
 
-  if (!product) {
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <main className="flex flex-1 items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Cargando producto...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !product) {
     return (
       <div className="flex min-h-screen flex-col">
         <Header />
@@ -42,9 +95,11 @@ const ProductDetail = () => {
     );
   }
 
-  const relatedProducts = products
-    .filter((p) => p.id !== product.id && p.id_category === product.id_category)
-    .slice(0, 4);
+  const relatedProducts = product
+    ? allProducts
+        .filter((p) => p.id !== product.id && p.id_category === product.id_category)
+        .slice(0, 4)
+    : [];
 
   return (
     <div className="flex min-h-screen flex-col">

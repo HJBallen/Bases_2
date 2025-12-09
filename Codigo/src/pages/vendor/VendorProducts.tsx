@@ -31,6 +31,13 @@ export default function VendorProducts() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+    }).format(price);
+  };
+
   const fetchProducts = async () => {
     if (!userId) return;
 
@@ -233,7 +240,7 @@ export default function VendorProducts() {
                           <TableCell>
                             {product.category?.name || 'Sin categoría'}
                           </TableCell>
-                          <TableCell>${product.price.toLocaleString()}</TableCell>
+                          <TableCell>{formatPrice(product.price)}</TableCell>
                           <TableCell>{product.stock}</TableCell>
                           <TableCell>
                             <Badge variant={stockStatus.variant}>{stockStatus.label}</Badge>
