@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useState<boolean | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
 
+  // ----------- Carga de rol -------------
   const fetchUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ----------- Carga de perfil -------------
   const checkProfileCompletion = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -93,16 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error checking profile completion:', error);
-      // En caso de error de red, no marcamos como true por defecto,
-      // para evitar redirecciones raras. Lo dejamos en null.
+      // En caso de error de red, mejor dejarlo en null
       setNeedsProfileCompletion(null);
     }
   };
 
-  const loadUserData = async (userId: string) => {
-    await Promise.all([fetchUserRole(userId), checkProfileCompletion(userId)]);
-  };
-
+  // ----------- Efecto 1: conectar con Supabase (user + session) -------------
   useEffect(() => {
     let isMounted = true;
 
@@ -119,13 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
         currentUserIdRef.current = initialSession?.user?.id ?? null;
-
-        if (initialSession?.user) {
-          await loadUserData(initialSession.user.id);
-        } else {
-          setUserRole(null);
-          setNeedsProfileCompletion(null);
-        }
       } catch (err) {
         console.error('Error initializing session:', err);
       } finally {
@@ -139,40 +130,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
 
-      // ⚠️ Caso especial: TOKEN_REFRESHED
-      // No bloqueamos la UI ni recargamos rol/perfil.
-      // Solo actualizamos session y user.
-      if (event === 'TOKEN_REFRESHED') {
-        setSession(session);
-        setUser(session?.user ?? null);
-        currentUserIdRef.current = session?.user?.id ?? null;
-        return;
-      }
-
-      // Para cambios "grandes" (login, logout, update), sí mostramos loading y recargamos datos
-      setIsLoading(true);
-
-      try {
-        setSession(session);
-        setUser(session?.user ?? null);
-        currentUserIdRef.current = session?.user?.id ?? null;
-
-        if (session?.user) {
-          await loadUserData(session.user.id);
-        } else {
-          setUserRole(null);
-          setNeedsProfileCompletion(null);
-        }
-      } catch (err) {
-        console.error('Error en onAuthStateChange:', err);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
+      // Solo sincronizamos user + session aquí.
+      // NO hacemos consultas a la BD en este callback.
+      console.log('[onAuthStateChange]', event, session?.user?.id);
+      setSession(session);
+      setUser(session?.user ?? null);
+      currentUserIdRef.current = session?.user?.id ?? null;
     });
 
     return () => {
@@ -181,6 +147,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // ----------- Efecto 2: cada vez que cambie user.id, cargo rol + perfil -------------
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      // Si no hay user => limpiar rol y estado de perfil
+      if (!user) {
+        setUserRole(null);
+        setNeedsProfileCompletion(null);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          fetchUserRole(user.id),
+          checkProfileCompletion(user.id),
+        ]);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]); // 👈 solo cuando realmente cambia el usuario
+
+  // ----------- Métodos de auth -------------
   const signUp = async (
     email: string,
     password: string,
