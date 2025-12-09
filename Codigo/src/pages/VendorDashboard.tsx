@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import VendorProducts from './vendor/VendorProducts';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function VendorSidebar() {
@@ -293,7 +293,7 @@ function VendorSales() {
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const fetchSales = async () => {
+  const fetchSales = useCallback(async () => {
     if (!userId) return;
 
     setLoading(true);
@@ -305,9 +305,9 @@ function VendorSales() {
         .eq('vendor_id', userId)
         .order('order_date', { ascending: false });
 
-      // Aplicar filtro por estado
+      // Aplicar filtro por estado de orden
       if (filterStatus !== 'all') {
-        query = query.eq('payment_status', filterStatus);
+        query = query.eq('order_state', filterStatus);
       }
 
       const { data, error: fetchError } = await query;
@@ -320,13 +320,13 @@ function VendorSales() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, filterStatus]);
 
   useEffect(() => {
     if (!userIdLoading && userId) {
       fetchSales();
     }
-  }, [userId, userIdLoading, filterStatus]);
+  }, [userId, userIdLoading, fetchSales]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -485,10 +485,10 @@ function VendorSales() {
                     <TableCell>{new Date(sale.order_date).toLocaleDateString()}</TableCell>
                     <TableCell>{sale.quantity}</TableCell>
                     <TableCell className="font-medium">{formatPrice(sale.total_price)}</TableCell>
-                    <TableCell>{getStatusBadge(sale.payment_status)}</TableCell>
+                    <TableCell>{getStatusBadge(sale.order_state)}</TableCell>
                     <TableCell>
-                      <Badge variant={sale.order_state === 'completado' ? 'default' : 'secondary'}>
-                        {sale.order_state}
+                      <Badge variant={sale.payment_status === 'AP' ? 'default' : sale.payment_status === 'RE' ? 'destructive' : 'secondary'}>
+                        {sale.payment_status === 'PE' ? 'Pendiente' : sale.payment_status === 'AP' ? 'Aprobado' : sale.payment_status === 'RE' ? 'Rechazado' : sale.payment_status === 'CA' ? 'Cancelado' : sale.payment_status || 'N/A'}
                       </Badge>
                     </TableCell>
                     <TableCell>{sale.payment_method_name || 'N/A'}</TableCell>
