@@ -116,8 +116,19 @@ export default function CompleteProfile() {
       // Actualizamos el flag de perfil completo en el contexto
       await checkProfileCompletion(user.id);
 
+      // Verificar si hay una intención de checkout pendiente
+      const pendingCheckout = localStorage.getItem('pendingCheckout');
+      
       toast.success("¡Perfil completado exitosamente!");
       navigate("/");
+      
+      // Si hay checkout pendiente, abrir el carrito después de un pequeño delay
+      if (pendingCheckout === 'true') {
+        localStorage.removeItem('pendingCheckout');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('openCartAfterAuth'));
+        }, 500);
+      }
     } catch (error) {
       console.error("Error completing profile:", error);
       toast.error("Error al completar el perfil.");

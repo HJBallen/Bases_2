@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plus, Minus, ShoppingBag, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 
 export function CartDrawer() {
@@ -16,9 +17,24 @@ export function CartDrawer() {
     totalPrice,
     clearCart,
   } = useCart();
+  const { user, isLoading: authLoading, needsProfileCompletion } = useAuth();
+  const navigate = useNavigate();
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Escuchar el evento para abrir el carrito después de autenticarse
+  useEffect(() => {
+    const handleOpenCartAfterAuth = () => {
+      setIsCartOpen(true);
+    };
+
+    window.addEventListener('openCartAfterAuth', handleOpenCartAfterAuth);
+
+    return () => {
+      window.removeEventListener('openCartAfterAuth', handleOpenCartAfterAuth);
+    };
+  }, [setIsCartOpen]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -30,13 +46,57 @@ export function CartDrawer() {
   const handleCheckout = async () => {
     if (items.length === 0 || isCheckingOut) return;
 
+    // Verificar si el usuario está autenticado
+    if (authLoading) {
+      return; // Esperar a que termine la carga
+    }
+
+    if (!user) {
+      // Guardar la intención de checkout en localStorage
+      localStorage.setItem('pendingCheckout', 'true');
+      // Guardar explícitamente el carrito antes de redirigir
+      try {
+        const cartData = JSON.stringify(items);
+        localStorage.setItem('bogogo_cart', cartData);
+        console.log('Carrito guardado antes de redirigir:', items.length, 'items');
+      } catch (error) {
+        console.error('Error guardando carrito:', error);
+      }
+      // Cerrar el carrito
+      setIsCartOpen(false);
+      // Redirigir a la página de autenticación
+      navigate('/auth', { replace: false });
+      return;
+    }
+
+    // Verificar si el usuario necesita completar su perfil
+    if (needsProfileCompletion) {
+      // Guardar la intención de checkout en localStorage
+      localStorage.setItem('pendingCheckout', 'true');
+      // El carrito ya se guarda automáticamente en localStorage por el CartContext
+      // Cerrar el carrito
+      setIsCartOpen(false);
+      // Redirigir a completar perfil
+      navigate('/completar-perfil', { replace: false });
+      return;
+    }
+
     setIsCheckingOut(true);
     setCheckoutError(null);
 
     try {
-      // TODO: aquí deberías usar el ID del cliente real (por ejemplo, de tu tabla user/perfil)
-      // También podrías tenerlo en un contexto de Auth.
-      const customerId = 1; // <-- reemplaza por el id_customer real
+      // Obtener el ID del cliente desde la tabla user
+      const { data: userData, error: userError } = await supabase
+        .from('user')
+        .select('id')
+        .eq('uuid', user.id)
+        .maybeSingle();
+
+      if (userError || !userData) {
+        throw new Error('No se pudo obtener la información del usuario');
+      }
+
+      const customerId = userData.id;
 
       // 1. Crear registro de Payment
       const { data: payment, error: paymentError } = await supabase

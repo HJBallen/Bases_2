@@ -87,10 +87,23 @@ export default function Auth() {
     if (!user) return; // no hay usuario → se queda en la pantalla de auth
     if (needsProfileCompletion === null) return; // aún calculando
 
+    // Verificar si hay una intención de checkout pendiente
+    const pendingCheckout = localStorage.getItem('pendingCheckout');
+    
     if (needsProfileCompletion) {
       navigate('/completar-perfil', { replace: true });
     } else {
-      navigate('/', { replace: true });
+      // Si hay checkout pendiente, navegar a home y abrir el carrito
+      if (pendingCheckout === 'true') {
+        localStorage.removeItem('pendingCheckout');
+        navigate('/', { replace: true });
+        // Abrir el carrito después de un pequeño delay para asegurar que el componente esté montado
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('openCartAfterAuth'));
+        }, 500);
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [user, authLoading, needsProfileCompletion, navigate]);
 

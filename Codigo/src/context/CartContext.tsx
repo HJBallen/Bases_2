@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartItem, Product } from '@/types';
 import { toast } from 'sonner';
 
@@ -16,9 +16,45 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CART_STORAGE_KEY = 'bogogo_cart';
+
+// Función para cargar el carrito desde localStorage
+const loadCartFromStorage = (): CartItem[] => {
+  try {
+    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading cart from storage:', error);
+  }
+  return [];
+};
+
+// Función para guardar el carrito en localStorage
+const saveCartToStorage = (items: CartItem[]) => {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.error('Error saving cart to storage:', error);
+  }
+};
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => {
+    const loaded = loadCartFromStorage();
+    console.log('Carrito cargado desde localStorage:', loaded.length, 'items');
+    return loaded;
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Guardar el carrito en localStorage cada vez que cambie
+  useEffect(() => {
+    if (items.length > 0) {
+      saveCartToStorage(items);
+      console.log('Carrito guardado en localStorage:', items.length, 'items');
+    }
+  }, [items]);
 
   const addToCart = (product: Product, quantity = 1) => {
     setItems((prevItems) => {
@@ -58,6 +94,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    localStorage.removeItem(CART_STORAGE_KEY);
     toast.info('Carrito vacío');
   };
 
