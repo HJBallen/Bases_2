@@ -7,7 +7,7 @@ interface CartContextType {
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
+  clearCart: (silent?: boolean) => void;
   totalItems: number;
   totalPrice: number;
   isCartOpen: boolean;
@@ -92,10 +92,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const clearCart = () => {
+  const clearCart = (silent = false) => {
+    const hadItems = items.length > 0;
     setItems([]);
     localStorage.removeItem(CART_STORAGE_KEY);
-    toast.info('Carrito vacío');
+    if (!silent && hadItems) {
+      toast.info('Carrito vacío');
+    }
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);

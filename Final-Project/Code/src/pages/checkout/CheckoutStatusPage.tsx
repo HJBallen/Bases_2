@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Clock, ArrowLeft } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ArrowLeft, Star } from "lucide-react";
 
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
+import { useUserNumericId } from "@/hooks/useDashboardData";
+import { RatingDialog } from "@/components/rating/RatingDialog";
 
 type Variant = "success" | "failure" | "pending";
 
@@ -17,6 +20,7 @@ interface OrderItem {
   total_price: number;
   product?: {
     name: string;
+    id_vendor: number;
   } | null;
 }
 
@@ -112,8 +116,14 @@ const CheckoutStatusPage = ({ variant }: CheckoutStatusPageProps) => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [vendors, setVendors] = useState<Array<{ id: number; name: string }>>([]);
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<{ id: number; name: string } | null>(null);
+  const cartClearedRef = useRef(false);
 
-  const { clearCart } = useCart();
+  const { clearCart, items: cartItems } = useCart();
+  const { user } = useAuth();
+  const { userId: customerId, loading: customerIdLoading } = useUserNumericId();
 
   // Cargar orden + items + pago
   useEffect(() => {
@@ -145,7 +155,8 @@ const CheckoutStatusPage = ({ variant }: CheckoutStatusPageProps) => {
               quantity,
               total_price,
               product:product (
-                name
+                name,
+                id_vendor
               )
             )
           `
@@ -158,11 +169,38 @@ const CheckoutStatusPage = ({ variant }: CheckoutStatusPageProps) => {
           throw new Error("Error cargando la orden");
         }
 
-        setOrder(data as unknown as Order);
-      } catch (err: any) {
-        setLoadError(
-          err?.message || "No fue posible cargar los datos de la orden."
-        );
+        const orderData = data as unknown as Order;
+        setOrder(orderData);
+
+        // Extraer vendedores únicos de los productos
+        if (orderData?.order_item) {
+          const vendorIds = new Set<number>();
+
+          for (const item of orderData.order_item) {
+            if (item.product?.id_vendor) {
+              vendorIds.add(item.product.id_vendor);
+            }
+          }
+
+          // Obtener nombres de los vendedores
+          if (vendorIds.size > 0) {
+            const { data: vendorsData, error: vendorsError } = await supabase
+              .from("user")
+              .select("id, name, lastname")
+              .in("id", Array.from(vendorIds));
+
+            if (!vendorsError && vendorsData) {
+              const vendorsList = vendorsData.map((v) => ({
+                id: v.id,
+                name: `${v.name || ""} ${v.lastname || ""}`.trim() || "Vendedor",
+              }));
+              setVendors(vendorsList);
+            }
+          }
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "No fue posible cargar los datos de la orden.";
+        setLoadError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -171,16 +209,18 @@ const CheckoutStatusPage = ({ variant }: CheckoutStatusPageProps) => {
     fetchOrder();
   }, [orderId]);
 
-  // Limpiar carrito cuando el pago fue exitoso
+  // Limpiar carrito cuando el pago fue exitoso (solo una vez)
   useEffect(() => {
     if (!order) return;
     if (variant !== "success") return;
+    if (cartClearedRef.current) return; // Ya se limpió anteriormente
 
-    // Solo limpiamos si la orden está marcada como pagada
-    if (order.state === "PAG") {
-      clearCart();
+    // Solo limpiamos si la orden está marcada como pagada y el carrito tiene items
+    if (order.state === "PAG" && cartItems.length > 0) {
+      cartClearedRef.current = true;
+      clearCart(true); // Limpiar silenciosamente (sin toast)
     }
-  }, [order, variant, clearCart]);
+  }, [order, variant, cartItems.length, clearCart]);
 
   const totals = useMemo(() => {
     if (!order?.order_item) return { total: 0, itemsCount: 0 };
@@ -315,6 +355,28 @@ const CheckoutStatusPage = ({ variant }: CheckoutStatusPageProps) => {
                 <Link to="/productos">Seguir comprando</Link>
               </Button>
 
+              {variant === "success" && vendors.length > 0 && customerId && !customerIdLoading && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Si hay múltiples vendedores, mostrar el primero (o se puede mejorar para mostrar selección)
+                    if (vendors.length === 1) {
+                      setSelectedVendor(vendors[0]);
+                      setRatingDialogOpen(true);
+                    } else {
+                      // Por ahora, mostrar el primer vendedor
+                      // En el futuro se puede mejorar para permitir seleccionar
+                      setSelectedVendor(vendors[0]);
+                      setRatingDialogOpen(true);
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Star className="h-4 w-4" />
+                  Calificar Vendedor
+                </Button>
+              )}
+
               {variant === "failure" && (
                 <Button
                   variant="outline"
@@ -350,6 +412,18 @@ const CheckoutStatusPage = ({ variant }: CheckoutStatusPageProps) => {
       </main>
 
       <Footer />
+
+      {/* Diálogo de calificación */}
+      {selectedVendor && customerId && (
+        <RatingDialog
+          open={ratingDialogOpen}
+          onOpenChange={setRatingDialogOpen}
+          vendorId={selectedVendor.id}
+          vendorName={selectedVendor.name}
+          customerId={customerId}
+          orderId={orderId || 0}
+        />
+      )}
     </div>
   );
 };
