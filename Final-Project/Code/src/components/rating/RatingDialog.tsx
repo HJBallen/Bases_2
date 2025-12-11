@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -33,7 +32,6 @@ export function RatingDialog({
 }: RatingDialogProps) {
   const [rating, setRating] = useState<number>(0);
   const [hoveredRating, setHoveredRating] = useState<number>(0);
-  const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -61,7 +59,6 @@ export function RatingDialog({
       onOpenChange(false);
       // Resetear el formulario
       setRating(0);
-      setComment('');
     } catch (error) {
       console.error('Error inesperado:', error);
       toast.error('Ocurrió un error inesperado. Intenta nuevamente.');
@@ -76,7 +73,6 @@ export function RatingDialog({
       // Resetear solo si no se está enviando
       setTimeout(() => {
         setRating(0);
-        setComment('');
       }, 200);
     }
   };
@@ -93,14 +89,14 @@ export function RatingDialog({
 
         <div className="space-y-6 py-4">
           {/* Sistema de estrellas */}
-          <div className="space-y-2">
-            <Label>Calificación</Label>
-            <div className="flex items-center gap-2">
+          <div className="space-y-4">
+            <Label className="text-base">Calificación</Label>
+            <div className="flex items-center justify-center gap-2 py-4">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
                   type="button"
-                  className="focus:outline-none"
+                  className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
                   onClick={() => setRating(star)}
                   onMouseEnter={() => setHoveredRating(star)}
                   onMouseLeave={() => setHoveredRating(0)}
@@ -108,7 +104,7 @@ export function RatingDialog({
                 >
                   <Star
                     className={cn(
-                      'h-8 w-8 transition-colors',
+                      'h-10 w-10 transition-colors',
                       star <= (hoveredRating || rating)
                         ? 'fill-yellow-400 text-yellow-400'
                         : 'fill-gray-200 text-gray-200',
@@ -118,28 +114,15 @@ export function RatingDialog({
                 </button>
               ))}
               {rating > 0 && (
-                <span className="ml-2 text-sm text-muted-foreground">
+                <span className="ml-3 text-base font-medium text-muted-foreground">
                   {rating} {rating === 1 ? 'estrella' : 'estrellas'}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Comentario opcional (aunque no está en la tabla, lo dejamos por si se quiere agregar después) */}
-          <div className="space-y-2">
-            <Label htmlFor="comment">Comentario (opcional)</Label>
-            <Textarea
-              id="comment"
-              placeholder="Comparte tu experiencia..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              disabled={isSubmitting}
-              rows={4}
-            />
-          </div>
-
           {/* Botones */}
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-4">
             <Button
               variant="outline"
               onClick={handleClose}
